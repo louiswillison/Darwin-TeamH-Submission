@@ -98,6 +98,18 @@ presence of the files and not their contents, so if a file is incomplete (i.e. t
 generation) it will need to be deleted manually and regenerated before it is able to be used for training,
 and therefore it's advised to ensure the setup is uninterrupted.
 
+File sizes may vary, but as a rough estimate the expected sizes of the feature files are as follows:
+
+- `features_cough_compare.csv`: ~1.1GB
+- `features_cough_compare_speech_compare.csv`: ~2.2GB
+- `features_cough_compare_speech_gemaps.csv`: ~1.1GB
+- `features_cough_gemaps.csv`: ~11MB
+- `features_cough_gemaps_speech_compare.csv`: ~1.1GB
+- `features_cough_gemaps_speech_gemaps.csv`: ~21MB
+- `features_cough_mfcc.csv`: ~350MB
+- `features_speech_compare.csv`: ~1.2GB
+- `features_speech_gemaps.csv`: ~12MB
+
 ## Configuration and Running Models
 
 Upon successful completion of the feature generation - and instantly on subsequent launches - the script will display a menu system to configure the models to be run, view and sort previous results, and other options. The menu system is
