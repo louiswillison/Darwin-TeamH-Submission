@@ -3,6 +3,10 @@ import sys
 import time
 from datetime import datetime
 
+from tqdm import tqdm
+
+import feature_extract
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 
@@ -33,84 +37,11 @@ class UILogic:
         self.features = None
         self.sort_by = None
         self.sort_order = None
-        self.history = []  # ui history
+        self.history = []  # ui history for back navigation
 
 
 batch = Batch(args=None)
 ui_logic = UILogic()
-
-
-# string_dict = {
-#     "audio_type": {
-#         "1": "Cough",
-#         "2": "Speech",
-#         "3": "Combined",
-#     },
-#     "model": {
-#         "1": "Random Forest",
-#         "2": "Extra Trees",
-#         "3": "Gradient Boosting",
-#         "4": "Logistic Regression",
-#         "5": "SVM",
-#         "6": "CNN",
-#         "7": "CNN-LSTM",
-#         "8": "FFNN",
-#         "9": "ResNet50",
-#     },
-#     # "features": {
-#     #     "1": "MFCC",
-#     #     "2": "GeMAPS",
-#     #     "3": "Compare",
-#     #     "4": "GeMAPS Cough and GeMAPS Speech",
-#     #     "5": "Compare Cough and Compare Speech",
-#     #     "6": "Compare Cough and GeMAPS Speech",
-#     #     "7": "GeMAPS Cough and Compare Speech",
-#     # },
-#     "features_cough": {
-#         "1": "MFCC",
-#         "2": "GeMAPS",
-#         "3": "Compare",
-#     },
-#     "features_speech": {
-#         "1": "GeMAPS",
-#         "2": "Compare",
-#     },
-#     "features_combined": {
-#         "1": "GeMAPS Cough and GeMAPS Speech",
-#         "2": "Compare Cough and Compare Speech",
-#         "3": "Compare Cough and GeMAPS Speech",
-#         "4": "GeMAPS Cough and Compare Speech",
-#     },
-# }
-
-# # used for internal filenames and stuff
-# string_dict_internal = {
-#     "audio_type": {
-#         "1": "cough",
-#         "2": "speech",
-#         "3": "combined",
-#     },
-#     "model": {
-#         "1": "rf",
-#         "2": "et",
-#         "3": "gb",
-#         "4": "lr",
-#         "5": "svm",
-#         "6": "cnn",
-#         "7": "lstm",
-#         "8": "ffnn",
-#         "9": "resnet50",
-#     },
-#     "features": {
-#         "1": "mfcc",
-#         "2": "gemaps",
-#         "3": "compare",
-#         "4": "gemaps_cough_gemaps_speech",
-#         "5": "compare_cough_compare_speech",
-#         "6": "compare_cough_gemaps_speech",
-#         "7": "gemaps_cough_compare_speech",
-#     }
-# }
 
 AUDIO_TYPES = {
     "1": "Cough",
@@ -163,6 +94,44 @@ FEATURE_SETS = {
 
 def clear_terminal():
     os.system("cls" if os.name == "nt" else "clear")
+
+
+def pre_checks():
+    features_files = [
+        "features_cough_mfcc.csv",
+        "features_cough_gemaps.csv",
+        "features_cough_compare.csv",
+        "features_speech_gemaps.csv",
+        "features_speech_compare.csv",
+        "features_cough_gemaps_speech_gemaps.csv",
+        "features_cough_compare_speech_compare.csv",
+        "features_cough_compare_speech_gemaps.csv",
+        "features_cough_gemaps_speech_compare.csv",
+    ]
+    features = [
+        "COUGH_MFCC",
+        "COUGH_GeMAPS",
+        "COUGH_COMPARE",
+        "SPEECH_GeMAPS",
+        "SPEECH_COMPARE",
+        "COUGHGEspeechGE",
+        "COUGHCOspeechCO",
+        "COUGHCOspeechGE",
+        "COUGHGEspeechCO",
+    ]
+    for file in features_files:
+        if not os.path.exists("features/"):
+            os.makedirs("features/")
+        if not os.path.exists("features/" + file):
+            print(f"Missing {file}, generating...")
+            feature_extract.FeatureExtractor(
+                use_subset=False,
+                output_path="features/" + file,
+                batch_size=1000,
+                verbose=False,
+                feature_type=features[features_files.index(file)],
+            ).extract_audio_files(web=False, ios=True, android=True)
+    clear_terminal()
 
 
 def ui_main_menu():
@@ -384,7 +353,9 @@ def ui_process_queue():
         choice = input("Select an option: ")
         if choice == "1":
             for i, run in enumerate(batch.queue):
-                time.sleep(5)  # stops some errors if models are too fast
+                time.sleep(
+                    5
+                )  # stops errors if models are too fast (turns out it doesn't but they happen less)
                 audio_label = AUDIO_TYPES.get(run.audio_type, "Unknown")
                 model_label = MODELS.get(run.model, "Unknown")
                 feature_label = FEATURE_SETS.get(run.audio_type, {}).get(
@@ -544,9 +515,6 @@ def ui_view_top_results_sort_order():
         ui_view_top_results_sort_order()
 
 
-# ask user whether to sort by AUC, F1, Sensitivity, Specificity
-# then ask for ascending or descending
-# then show top 10 results from the results log csv
 def ui_view_top_results():
     clear_terminal()
     print("**************************************")
@@ -561,20 +529,18 @@ def ui_view_top_results():
     with open("results_log.csv", "r") as f:
         lines = f.readlines()
 
-    # Skip the header line
     lines = lines[1:]
 
-    # Sort the results based on user choice
     if ui_logic.sort_by == "1":
-        index = 4  # AUC
+        index = 4  # auc
     elif ui_logic.sort_by == "2":
-        index = 5  # F1
+        index = 5  # f1
     elif ui_logic.sort_by == "3":
-        index = 6  # Sensitivity
+        index = 6  # sens
     elif ui_logic.sort_by == "4":
-        index = 7  # Specificity
+        index = 7  # spec
     elif ui_logic.sort_by == "5":
-        index = 0  # Timestamp
+        index = 0  # time
 
     sorted_lines = sorted(
         lines,
@@ -582,7 +548,6 @@ def ui_view_top_results():
         reverse=ui_logic.sort_order == "2",
     )
 
-    # Display top 10 results
     for i, line in enumerate(sorted_lines[:20]):
         line = line.strip()
         audio_label = AUDIO_TYPES.get(line.split(",")[1], "Unknown")
@@ -622,25 +587,6 @@ def ui_view_top_results():
         ui_view_top_results()
 
 
-# def main():
-#     clear_terminal()
-#     while True:
-#         # go to last menu in history
-#         if ui_logic.history:
-#             last_menu = ui_logic.history[-1]
-#             if last_menu == "main":
-#                 ui_main_menu()
-#             elif last_menu == "audio_type":
-#                 ui_audio_type()
-#             elif last_menu == "model":
-#                 ui_model_selection()
-#             elif last_menu == "features":
-#                 ui_feature_selection()
-#         else:
-#             ui_main_menu()
-#         choice = input("Select an option: ")
-
-
 def execute_run(run):
     run.status = "Running"
     run.start_time = datetime.now()
@@ -671,9 +617,6 @@ def execute_run(run):
         print(f"Error during model execution: {e}")
         run.status = "Failed"
         run.end_time = datetime.now()
-        # run.result = (0.0, 0.0, 0.0, 0.0)
-        # run.roc_output = None
-        # run.cm_output = None
         return
 
 
@@ -685,7 +628,7 @@ def train_and_evaluate(
 
     if audio_type == "1":
         if features == "1":
-            feature_file = "cnn_features_cough_mfcc.csv"  # cough mfcc
+            feature_file = "features/features_cough_mfcc.csv"  # cough mfcc
             roc_filename = (
                 "roc_"
                 + MODELS_INTERNAL.get(model)
@@ -697,7 +640,7 @@ def train_and_evaluate(
                 "cm_" + MODELS_INTERNAL.get(model) + "_cough_mfcc_" + timestamp + ".png"
             )
         elif features == "2":
-            feature_file = "cnn_GeMAPS_feature.csv"  # cough gemaps
+            feature_file = "features/features_cough_gemaps.csv"  # cough gemaps
             roc_filename = (
                 "roc_" + MODELS_INTERNAL.get(model) + "_cough_ge_" + timestamp + ".png"
             )
@@ -705,7 +648,7 @@ def train_and_evaluate(
                 "cm_" + MODELS_INTERNAL.get(model) + "_cough_ge_" + timestamp + ".png"
             )
         elif features == "3":
-            feature_file = "cnn_COMPARE_feature.csv"  # cough compare
+            feature_file = "features/features_cough_compare.csv"  # cough compare
             roc_filename = (
                 "roc_" + MODELS_INTERNAL.get(model) + "_cough_co_" + timestamp + ".png"
             )
@@ -715,7 +658,7 @@ def train_and_evaluate(
 
     elif audio_type == "2":
         if features == "1":
-            feature_file = "cnn_features_speech_gemaps.csv"  # speech gemaps
+            feature_file = "features/features_speech_gemaps.csv"  # speech gemaps
             roc_filename = (
                 "roc_" + MODELS_INTERNAL.get(model) + "_speech_ge_" + timestamp + ".png"
             )
@@ -724,7 +667,7 @@ def train_and_evaluate(
             )
 
         elif features == "2":
-            feature_file = "cnn_features_speech_compare.csv"  # speech compare
+            feature_file = "features/features_speech_compare.csv"  # speech compare
             roc_filename = (
                 "roc_" + MODELS_INTERNAL.get(model) + "_speech_co_" + timestamp + ".png"
             )
@@ -734,7 +677,7 @@ def train_and_evaluate(
 
     else:
         if features == "1":
-            feature_file = "features_CoughGESpeechGE.csv"  # cough gemaps speech gemaps
+            feature_file = "features/features_cough_gemaps_speech_gemaps.csv"  # cough gemaps speech gemaps
             roc_filename = (
                 "roc_"
                 + MODELS_INTERNAL.get(model)
@@ -751,9 +694,7 @@ def train_and_evaluate(
             )
 
         elif features == "2":
-            feature_file = (
-                "features_CoughCOSpeechCO.csv"  # cough compare speech compare
-            )
+            feature_file = "features/features_cough_compare_speech_compare.csv"  # cough compare speech compare
             roc_filename = (
                 "roc_"
                 + MODELS_INTERNAL.get(model)
@@ -769,7 +710,7 @@ def train_and_evaluate(
                 + ".png"
             )
         elif features == "3":
-            feature_file = "features_CoughCOSpeechGE.csv"  # cough compare speech gemaps
+            feature_file = "features/features_cough_compare_speech_gemaps.csv"  # cough compare speech gemaps
             roc_filename = (
                 "roc_"
                 + MODELS_INTERNAL.get(model)
@@ -785,7 +726,7 @@ def train_and_evaluate(
                 + ".png"
             )
         elif features == "4":
-            feature_file = "features_CoughGESpeechCO.csv"  # cough gemaps speech compare
+            feature_file = "features/features_cough_gemaps_speech_compare.csv"  # cough gemaps speech compare
             roc_filename = (
                 "roc_"
                 + MODELS_INTERNAL.get(model)
@@ -801,7 +742,6 @@ def train_and_evaluate(
                 + ".png"
             )
 
-    # print("Using feature file: " + feature_file)
     if model == "1":
         from legacy import run_model
 
@@ -884,4 +824,5 @@ def train_and_evaluate(
 
 
 if __name__ == "__main__":
+    pre_checks()
     ui_main_menu()

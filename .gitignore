@@ -1,1 +1,7 @@
 *.csv
+
+data/covid19_data_0426
+
+.venv
+.vscode
+src/__pycache__
